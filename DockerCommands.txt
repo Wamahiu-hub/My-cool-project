@@ -1,0 +1,8 @@
+Windows
+    docker build -t wamahiu/skillmatch .
+    docker push wamahiu/skillmatch
+EC2
+ sudo docker stop backend
+ sudo docker rm backend
+ sudo docker pull wamahiu/skillmatch:latest
+ sudo docker run  -p 80:80 --name backend wamahiu/skillmatch
