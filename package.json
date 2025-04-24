@@ -6,7 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.ts",
     "dev": "nodemon src/server.ts",
-      "build": "tsc"
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
@@ -14,8 +14,10 @@
   "description": "",
   "dependencies": {
     "@faker-js/faker": "^9.5.1",
+    "@google/generative-ai": "^0.24.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
+    "body-parser": "^2.2.0",
     "colors": "^1.4.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

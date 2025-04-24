@@ -5,11 +5,10 @@ import { User } from "./User";
 export class Role extends BaseEntity {
   @PrimaryGeneratedColumn()
   role_id!: number;
-  name!: string;
 
   @Column()
   role_name!: string;
 
   @OneToMany(() => User, user => user.role)
-  users!: User[];
+  users!: User[];  // One Role can have many Users
 }

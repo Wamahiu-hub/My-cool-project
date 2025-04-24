@@ -9,7 +9,7 @@ export class User extends BaseEntity {
     user_id!: number;
 
     @Column()
-    full_name!: string;
+    name!: string;
 
     @Column({ unique: true })
     email!: string;
@@ -18,101 +18,19 @@ export class User extends BaseEntity {
     password!: string;
 
     @Column({ nullable: true })
-    mobile_number?: string;
-
-    @Column("simple-array", { nullable: true })
-    skills?: string[];
+    phone_number?: string;
 
     @Column({ nullable: true })
-    experience_years?: number;
+    cv?: string;  // URL or file path to the CV
 
-    @Column({ nullable: true })
-    address?: string;
-
-    @Column({ nullable: true })
-    city?: string;
-
-    @Column({ nullable: true })
-    state?: string;
-
-    @Column({ nullable: true })
-    country?: string;
-
-    @Column({ nullable: true })
-    postal_code?: string;
-
-    @Column({ nullable: true })
-    preferred_language?: string;
-
-    @Column({ nullable: true })
-    cv_url?: string;
-
-    @Column({ nullable: true })
-    profile_image?: string;
-
-    @Column({ type: 'date', nullable: true })
-    date_of_birth?: Date;
-
-    @Column({ nullable: true })
-    current_position?: string;
-
-    @Column({ nullable: true })
-    current_company?: string;
-
-    @Column({ nullable: true })
-    linkedin_url?: string;
-
-    @Column({ nullable: true })
-    portfolio_url?: string;
-
-    @Column("simple-array", { nullable: true })
-    certifications?: string[];
-
-    @Column("simple-array", { nullable: true })
-    education?: string[];
-
-    @Column({ type: 'text', nullable: true })
-    bio?: string;
-
-    @Column({ type: 'jsonb', nullable: true })
-    preferences?: {
-        job_types?: string[];
-        desired_salary_range?: {
-            min: number;
-            max: number;
-        };
-        preferred_locations?: string[];
-        remote_work?: boolean;
-        notification_settings?: {
-            email: boolean;
-            sms: boolean;
-            push: boolean;
-        };
-    };
-
-    @Column({ nullable: true })
-    last_login?: Date;
-
-    @Column({ nullable: true })
-    password_reset_token?: string;
-
-    @Column({ nullable: true })
-    password_reset_expires?: Date;
-
-    @Column({ default: false })
-    email_verified!: boolean;
-
-    @Column({ nullable: true })
-    email_verification_token?: string;
+    // skills
+    @Column('simple-array', { nullable: true })
+    skills?: string[];  // Array of skills (e.g., ["JavaScript", "React"])
+    @Column({nullable:true})
+    path?:string
 
     @ManyToOne(() => Role, role => role.users)
-    role!: Role;
-
-    @OneToMany(() => Job, job => job.recruiter)
-    posted_jobs!: Job[];
-
-    @OneToMany(() => JobApplication, application => application.applicant)
-    applications!: JobApplication[];
+    role!: Role;  // A User has one Role
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at!: Date;
@@ -123,17 +41,11 @@ export class User extends BaseEntity {
     @Column({ default: true })
     is_active!: boolean;
 
-    @Column({ type: 'jsonb', nullable: true })
-    social_profiles?: {
-        github?: string;
-        twitter?: string;
-        facebook?: string;
-        instagram?: string;
-    };
+    // One User can post many Jobs
+    @OneToMany(() => Job, job => job.recruiter)
+    posted_jobs!: Job[];
 
-    @Column({ default: false })
-    is_featured!: boolean;
-
-    @Column({ type: 'text', nullable: true })
-    account_status?: string; // 'active', 'suspended', 'pending'
+    // One User can apply to many Jobs
+    @OneToMany(() => JobApplication, application => application.applicant)
+    applications!: JobApplication[];
 }

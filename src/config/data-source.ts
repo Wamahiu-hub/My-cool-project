@@ -3,6 +3,9 @@ import dotenv from 'dotenv'
 import { DataSource } from 'typeorm';
 import { User } from '../entities/User';
 import { Role } from '../entities/Role';
+import { Job } from '../entities/Job';
+import { JobApplication } from '../entities/JobApplication';
+import { Interviews } from '../entities/Interviews';
 
 dotenv.config();
 export const AppDataSource = new DataSource(
@@ -18,6 +21,6 @@ export const AppDataSource = new DataSource(
     ssl: {
       rejectUnauthorized: false
     },
-    entities: [User, Role]
+    entities: [User, Role,Job,JobApplication,Interviews]
   }
 );

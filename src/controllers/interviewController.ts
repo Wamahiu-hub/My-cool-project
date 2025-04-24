@@ -1,162 +1,176 @@
-import { Response } from "express";
-import { AppDataSource } from "../config/data-source";
-import { Interview } from "../entities/Interview";
+import { Interviews } from "../entities/Interviews";
 import { JobApplication } from "../entities/JobApplication";
-import { User } from "../entities/User";
-import { RequestWithUser } from "../utils/types/customTypes";
 import asyncHandler from "../middlewares/asyncHandler";
-import { sendEmail } from "../utils/helpers/emailService";
+import { Response } from "express";
+import { UserRequest } from "../utils/types/userTypes";
 
-const interviewRepository = AppDataSource.getRepository(Interview);
-const applicationRepository = AppDataSource.getRepository(JobApplication);
-const userRepository = AppDataSource.getRepository(User);
+// Schedule an interview for a jobseeker
+export const scheduleInterview = asyncHandler(async (req: UserRequest, res: Response) => {
+    const { applicationId, scheduled_at, location, notes } = req.body;
 
-export const scheduleInterview = asyncHandler(async (req: RequestWithUser, res: Response) => {
-    const { applicationId } = req.params;
-    const { 
-        interview_date, 
-        interview_type,
-        location,
-        meeting_link,
-        interview_round,
-        interviewers,
-        duration_minutes,
-        special_instructions
-    } = req.body;
 
-    const application = await applicationRepository.findOne({
-        where: { application_id: parseInt(applicationId) },
-        relations: ['job', 'job.recruiter', 'applicant']
+    // Find the job application
+    const application = await JobApplication.findOne({
+        where: { application_id: applicationId },
+        relations: ["job", "job.recruiter"],
     });
 
     if (!application) {
-        return res.status(404).json({ message: "Application not found" });
+        return res.status(404).json({ message: "Job application not found" });
     }
 
-    // Check if user is the job recruiter
-    if (application.job.recruiter.user_id !== req.user.user_id) {
-        return res.status(403).json({ message: "Not authorized to schedule interviews" });
+    // Ensure the recruiter owns the job
+    if (!req.user || application.job.recruiter.user_id !== Number(req.user.user_id)) {
+        return res.status(403).json({ message: "Not authorized to schedule interviews for this job" });
     }
 
-    const interviewer = await userRepository.findOne({
-        where: { user_id: req.user.user_id }
-    });
-
-    if (!interviewer) {
-        return res.status(404).json({ message: "Interviewer not found" });
-    }
-
-    const interview = interviewRepository.create({
+    // Create a new interview
+    const interview = Interviews.create({
         application,
-        interviewer,
-        interview_date: new Date(interview_date),
-        interview_type,
+        scheduled_at,
         location,
-        meeting_link,
-        interview_round,
-        status: 'scheduled'
+        notes,
+        status: "scheduled",
     });
 
-    await interviewRepository.save(interview);
+    // Save the interview to the database
+    await interview.save();
 
-    // Send email notifications
-    await sendEmail({
-        to: application.applicant.email,
-        subject: `Interview Scheduled - ${application.job.title}`,
-        text: `Your interview has been scheduled for ${interview_date}. ${
-            interview_type === 'online' ? `Meeting link: ${meeting_link}` : `Location: ${location}`
-        }`
-    });
-
-    res.status(201).json({
+    return res.status(201).json({
         success: true,
-        data: interview
+        message: "Interview scheduled successfully",
+        data: {
+            interview_id: interview.interview_id,
+            scheduled_at: interview.scheduled_at,
+            location: interview.location,
+            notes: interview.notes,
+            status: interview.status,
+        },
     });
 });
 
-export const updateInterviewStatus = asyncHandler(async (req: RequestWithUser, res: Response) => {
-    const { status, feedback, notes } = req.body;
-    
-    const interview = await interviewRepository.findOne({
-        where: { interview_id: parseInt(req.params.id) },
-        relations: ['interviewer']
-    });
 
-    if (!interview) {
-        return res.status(404).json({ message: "Interview not found" });
-    }
 
-    // Check if user is the interviewer
-    if (interview.interviewer.user_id !== req.user.user_id) {
-        return res.status(403).json({ message: "Not authorized to update this interview" });
-    }
+export const getScheduledInterviews = asyncHandler(async (req: UserRequest, res: Response) => {
+  // Fetch all interviews for jobs posted by the recruiter
+  if (!req.user) {
+      return res.status(401).json({ message: "User not authenticated" });
+  }
 
-    interview.status = status;
-    interview.notes = notes;
-    interview.updated_at = new Date();
+  const interviews = await Interviews.find({
+      where: { application: { job: { recruiter: { user_id: Number(req.user.user_id) } } } },
+      relations: ["application", "application.job", "application.applicant"],
+  });
 
-    await interviewRepository.save(interview);
+  if (!interviews || interviews.length === 0) {
+      return res.status(404).json({ message: "No interviews found" });
+  }
 
-    res.json({
-        success: true,
-        data: interview
-    });
+  const formattedInterviews = interviews.map((interview) => ({
+      interview_id: interview.interview_id,
+      job_title: interview.application.job.title,
+      applicant_name: interview.application.applicant.name,
+      scheduled_at: interview.scheduled_at,
+      location: interview.location,
+      status: interview.status,
+  }));
+
+  return res.status(200).json({
+      success: true,
+      data: formattedInterviews,
+  });
 });
 
-export const getInterviewById = asyncHandler(async (req: RequestWithUser, res: Response) => {
-    const interview = await interviewRepository.findOne({
-        where: { interview_id: parseInt(req.params.id) },
-        relations: ['application', 'application.applicant', 'application.job', 'interviewer']
-    });
 
-    if (!interview) {
-        return res.status(404).json({ message: "Interview not found" });
-    }
 
-    // Check authorization
-    if (interview.interviewer.user_id !== req.user.user_id &&
-        interview.application.applicant.user_id !== req.user.user_id &&
-        interview.application.job.recruiter.user_id !== req.user.user_id) {
-        return res.status(403).json({ message: "Not authorized to view this interview" });
-    }
 
-    res.json({
-        success: true,
-        data: interview
-    });
+
+export const getJobseekerInterviews = asyncHandler(async (req: UserRequest, res: Response) => {
+  // Ensure the user is authenticated
+  if (!req.user) {
+      return res.status(401).json({ message: "User not authenticated" });
+  }
+
+  // Fetch all interviews for the jobseeker
+  const interviews = await Interviews.find({
+      where: { application: { applicant: { user_id: Number(req.user.user_id) } } },
+      relations: ["application", "application.job"],
+  });
+
+  if (!interviews || interviews.length === 0) {
+      return res.status(404).json({ message: "No interviews found" });
+  }
+
+  const formattedInterviews = interviews.map((interview) => ({
+      interview_id: interview.interview_id,
+      job_title: interview.application.job.title,
+      scheduled_at: interview.scheduled_at,
+      location: interview.location,
+      status: interview.status,
+  }));
+
+  return res.status(200).json({
+      success: true,
+      data: formattedInterviews,
+  });
 });
 
-export const getRecruiterInterviews = asyncHandler(async (req: RequestWithUser, res: Response) => {
-    const interviews = await interviewRepository
-        .createQueryBuilder("interview")
-        .leftJoinAndSelect("interview.application", "application")
-        .leftJoinAndSelect("application.job", "job")
-        .leftJoinAndSelect("job.recruiter", "recruiter")
-        .leftJoinAndSelect("application.applicant", "applicant")
-        .where('job.recruiter.user_id = :recruiterId', { recruiterId: req.user.user_id })
-        .orderBy('interview.interview_date', 'DESC')
-        .getMany();
 
-    res.json({
-        success: true,
-        count: interviews.length,
-        data: interviews
-    });
+export const deleteOldInterviews = asyncHandler(async (req: UserRequest, res: Response) => {
+  // Calculate the date one week ago
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  // Delete interviews older than one week
+  const result = await Interviews.createQueryBuilder()
+      .delete()
+      .where("scheduled_at < :oneWeekAgo", { oneWeekAgo })
+      .execute();
+
+  return res.status(200).json({
+      success: true,
+      message: `${result.affected} old interviews deleted successfully`,
+  });
 });
 
-export const getApplicantInterviews = asyncHandler(async (req: RequestWithUser, res: Response) => {
-    const interviews = await interviewRepository
-        .createQueryBuilder("interview")
-        .leftJoinAndSelect("interview.application", "application")
-        .leftJoinAndSelect("application.job", "job")
-        .leftJoinAndSelect("job.recruiter", "recruiter")
-        .where('application.applicant.user_id = :applicantId', { applicantId: req.user.user_id })
-        .orderBy('interview.interview_date', 'DESC')
-        .getMany();
+export const updateInterview = asyncHandler(async (req: UserRequest, res: Response) => {
+  const { interviewId } = req.params;
+  const { scheduled_at, location, notes, status } = req.body;
 
-    res.json({
-        success: true,
-        count: interviews.length,
-        data: interviews
-    });
+
+  // Find the interview
+  const interview = await Interviews.findOne({
+      where: { interview_id: Number(interviewId) },
+      relations: ["application", "application.job", "application.job.recruiter"],
+  });
+
+  if (!interview) {
+      return res.status(404).json({ message: "Interview not found" });
+  }
+
+  // Ensure the recruiter owns the job associated with the interview
+  if (!req.user || interview.application.job.recruiter.user_id !== Number(req.user.user_id)) {
+      return res.status(403).json({ message: "Not authorized to update this interview" });
+  }
+
+  // Update the interview details
+  if (scheduled_at) interview.scheduled_at = scheduled_at;
+  if (location) interview.location = location;
+  if (notes) interview.notes = notes;
+  if (status) interview.status = status;
+
+  // Save the updated interview to the database
+  await interview.save();
+
+  return res.status(200).json({
+      success: true,
+      message: "Interview updated successfully",
+      data: {
+          interview_id: interview.interview_id,
+          scheduled_at: interview.scheduled_at,
+          location: interview.location,
+          notes: interview.notes,
+          status: interview.status,
+      },
+  });
 });

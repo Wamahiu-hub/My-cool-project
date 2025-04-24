@@ -1,27 +1,28 @@
-import { Router } from "express";
+import express from 'express';
+import { protect } from '../middlewares/auth/protect';
 import {
-  scheduleInterview,
-  updateInterviewStatus,
-  getInterviewById,
-  getRecruiterInterviews,
-  getApplicantInterviews,
-} from "../controllers/interviewController";
+    scheduleInterview,
+    getScheduledInterviews,
+    getJobseekerInterviews,
+    deleteOldInterviews,
+    updateInterview,
+} from '../controllers/interviewController';
 
-const router = Router();
+const router = express.Router();
 
-// 1️⃣ Schedule a new interview (recruiter only)
-router.post("/:applicationId", scheduleInterview);
+// Route to schedule an interview
+router.post('/schedule', protect, scheduleInterview);
 
-// 2️⃣ Update an existing interview’s status/notes
-router.patch("/:id/status", updateInterviewStatus);
+// Route to get all interviews scheduled by the recruiter
+router.get('/recruiter', protect, getScheduledInterviews);
 
-// 3️⃣ Fetch one interview by ID
-router.get("/:id", getInterviewById);
+// Route to get all interviews for the jobseeker
+router.get('/jobseeker', protect, getJobseekerInterviews);
 
-// 4️⃣ List all interviews for which the current user is the recruiter
-router.get("/recruiter", getRecruiterInterviews);
+// Route to delete old interviews
+router.delete('/deleteOld', protect, deleteOldInterviews);
 
-// 5️⃣ List all interviews for which the current user is the applicant
-router.get("/applicant", getApplicantInterviews);
+// Route to update an interview
+router.patch('/update/:interviewId', protect, updateInterview);
 
 export default router;

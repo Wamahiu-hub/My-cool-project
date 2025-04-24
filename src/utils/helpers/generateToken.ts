@@ -1,17 +1,26 @@
-import { Response } from "express";
-import dotenv from 'dotenv'
-import jwt from 'jsonwebtoken'
+import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
 
-dotenv.config()
+dotenv.config();
 
-//Debugging  - check if env var are loaded correctly  
-console.log("JWT_SECRET: ", process.env.JWT_SECRET )
-console.log("REFRESH_TOKEN_SECRET: ", process.env.REFRESH_TOKEN_SECRET )
+export const generateToken = (userId: number, role: string) => {
+    const jwt_secret = process.env.JWT_SECRET;
+    const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
 
-export const generateToken = (userId: number, userEmail: string, userRole: string): string => {
-    return jwt.sign(
-        { id: userId, email: userEmail, role: userRole },
-        process.env.JWT_SECRET || 'default_secret',
-        { expiresIn: process.env.JWT_EXPIRES_IN ? parseInt(process.env.JWT_EXPIRES_IN, 10) : '30d' }
-    );
+    if (!jwt_secret || !refreshSecret) {
+        throw new Error('JWT_SECRET or REFRESH_TOKEN_SECRET not found in environment variables');
+    }
+
+    try {
+        // Generate access token
+        const accessToken = jwt.sign({ userId, role }, jwt_secret, { expiresIn: '1d' });
+
+        // Generate refresh token
+        const refreshToken = jwt.sign({ userId, role }, refreshSecret, { expiresIn: '30d' });
+
+        return { accessToken, refreshToken };
+    } catch (error) {
+        console.error('Error generating JWT:', error);
+        throw new Error('Error generating JWT');
+    }
 };

@@ -1,2 +1,4 @@
+# ingore node_modules
 node_modules
-node_modules
+# ingore .env
+.env 
