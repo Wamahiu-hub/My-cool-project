@@ -16,7 +16,7 @@ export class Job extends BaseEntity {
     @Column("text")
     description!: string;
 
-    @Column({ type: 'simple-array' })
+    @Column({ type: 'simple-array', nullable:true})
     required_skills!: string[];
 
     // Many Jobs can be posted by one User
